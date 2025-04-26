@@ -14,6 +14,17 @@ if [ "${DISABLE_DB_MIGRATIONS}" != "true" ] && [ ! -f /app/docker-data/db_status
     PGPASSWORD=${PGPASS} psql -h ${PGHOST} -p ${PGPORT} -U ${PGUSER} -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '${PGDATABASE}'" | grep -q 1 || \
     PGPASSWORD=${PGPASS} psql -h ${PGHOST} -p ${PGPORT} -U ${PGUSER} -d postgres -c "CREATE DATABASE \"${PGDATABASE}\""
 
+    # Create twenty user if it doesn't exist
+    if [ ${PGPASS} psql -h ${PGHOST} -p ${PGPORT} -U ${PGUSER} -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='twenty'" | grep -q 0 ]; then
+        echo "Creating basic "twenty" user..."
+        TWENTYPASS=${PGPASS} psql -h ${PGHOST} -p ${PGPORT} -U ${PGUSER} -d postgres -c "CREATE ROLE twenty WITH LOGIN PASSWORD 'twenty'"
+
+        # try to give the user all privileges
+        if ! TWENTYPASS=${PGPASS} psql -h ${PGHOST} -p ${PGPORT} -U ${PGUSER} -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE \"${PGDATABASE}\" TO twenty"; then
+            echo "Failed to grant privileges to "twenty" user. Please consult Twenty documentation for assistance."
+        fi
+    fi
+
     # Run setup and migration scripts
     NODE_OPTIONS="--max-old-space-size=1500" tsx ./scripts/setup-db.ts
     yarn database:migrate:prod
